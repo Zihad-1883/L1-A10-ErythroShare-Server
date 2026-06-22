@@ -26,12 +26,60 @@ async function run() {
     await client.connect();
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
+
+    const db = client.db("erythroshare");
+    const donationRequestsCollection = db.collection("donationRequests");
+
+    // create a route to post donation requests
+    app.post("/dashboard/create-donation-request", async (req, res) => {
+      const {
+        name,
+        email,
+        recipientName,
+        recipientDistrict,
+        recipientUpazila,
+        hospitalName,
+        address,
+        bloodGroup,
+        donationDate,
+        donationTime,
+        requestedMessage,
+      } = req.body;
+
+      const donationRequest = {
+        name,
+        email,
+        recipientName,
+        recipientDistrict,
+        recipientUpazila,
+        hospitalName,
+        address,
+        bloodGroup,
+        donationDate,
+        donationTime,
+        requestedMessage,
+        status: "pending",
+        createdAt: new Date(),
+      };
+      // console.log(donationRequest);
+      await donationRequestsCollection.insertOne(donationRequest);
+      return res.status(201).json(donationRequest);
+    });
+
+    // create a route to get all donation requests
+    app.get("/dashboard/my-donation-requests/:id", async (req, res) => {
+      const donationRequests = await donationRequestsCollection
+        .find()
+        .toArray();
+      // console.log(donationRequests);
+      return res.status(200).json(donationRequests);
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
-  } finally {
-    // Ensures that the client will close when you finish/error
-    await client.close();
+  } catch (err) {
+    console.log(err);
   }
 }
 run().catch(console.dir);

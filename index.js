@@ -77,20 +77,47 @@ async function run() {
 
     // update profile
     app.patch("/dashboard/profile", async (req, res) => {
-      const { name, email, image, bloodGroup, district, upazila } = req.body;
-      const userId = req.user.id;
-      const updateUser = {
-        name,
-        email,
-        image,
-        bloodGroup,
-        district,
-        upazila,
-      };
-      await db
-        .collection("users")
-        .updateOne({ _id: userId }, { $set: updateUser });
-      return res.status(200).json(updateUser);
+      try {
+        const { name, email, image, bloodGroup, district, upazila } = req.body;
+
+        if (!email) {
+          return res
+            .status(400)
+            .json({ message: "Email is required to update profile" });
+        }
+
+        const updateUser = {
+          name,
+          image,
+          bloodGroup,
+          district,
+          upazila,
+        };
+
+        // Remove undefined fields to avoid overwriting with null
+        Object.keys(updateUser).forEach(
+          (key) => updateUser[key] === undefined && delete updateUser[key],
+        );
+
+        const result = await db
+          .collection("user")
+          .updateOne({ email: email }, { $set: updateUser });
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        return res.status(200).json({ ...updateUser, success: true });
+      } catch (error) {
+        console.error("Profile update error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+    // get all users
+    app.get("/dashboard/all-users", async (req, res) => {
+      const users = await db.collection("user").find().toArray();
+      return res.status(200).json(users);
     });
 
     console.log(

@@ -27,7 +27,7 @@ async function run() {
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
 
-    const db = client.db("erythroshare");
+    const db = client.db("erythro-share");
     const donationRequestsCollection = db.collection("donationRequests");
 
     // create a route to post donation requests
@@ -73,6 +73,24 @@ async function run() {
         .toArray();
       // console.log(donationRequests);
       return res.status(200).json(donationRequests);
+    });
+
+    // update profile
+    app.patch("/dashboard/profile", async (req, res) => {
+      const { name, email, image, bloodGroup, district, upazila } = req.body;
+      const userId = req.user.id;
+      const updateUser = {
+        name,
+        email,
+        image,
+        bloodGroup,
+        district,
+        upazila,
+      };
+      await db
+        .collection("users")
+        .updateOne({ _id: userId }, { $set: updateUser });
+      return res.status(200).json(updateUser);
     });
 
     console.log(

@@ -120,6 +120,28 @@ async function run() {
       return res.status(200).json(users);
     });
 
+    // block/unblock and make admin/volunteer user
+    app.patch("/dashboard/user-status", async (req, res) => {
+      const { email, status, role } = req.body;
+      if (!email) {
+        return res
+          .status(400)
+          .json({ message: "Email is required to update user status" });
+      }
+      if (!status) {
+        return res
+          .status(400)
+          .json({ message: "Status is required to update user status" });
+      }
+      if (!role) {
+        return res
+          .status(400)
+          .json({ message: "Role is required to update user status" });
+      }
+      const result = await db.collection("user").updateOne();
+      return res.status(200).json({ success: true });
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );

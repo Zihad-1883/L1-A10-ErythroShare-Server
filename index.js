@@ -136,7 +136,7 @@ async function run() {
       try {
         const { id } = req.params;
         const { status, donorName, donorEmail } = req.body;
-        
+
         const updateDoc = { $set: { status: status } };
         if (donorName) updateDoc.$set.donorName = donorName;
         if (donorEmail) updateDoc.$set.donorEmail = donorEmail;
@@ -153,6 +153,29 @@ async function run() {
           .json({ success: true, message: "Request updated" });
       } catch (error) {
         console.error("Update donation status error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+    // full update donation request
+    app.put("/dashboard/donation-request/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const updateData = req.body;
+        delete updateData._id;
+
+        const result = await donationRequestsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updateData },
+        );
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "Request not found" });
+        }
+        return res
+          .status(200)
+          .json({ success: true, message: "Request updated successfully" });
+      } catch (error) {
+        console.error("Full update donation request error:", error);
         return res.status(500).json({ message: "Internal server error" });
       }
     });

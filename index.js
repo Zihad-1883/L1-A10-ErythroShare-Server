@@ -1,7 +1,7 @@
 const express = require("express");
 const dotenv = require("dotenv");
 dotenv.config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 const app = express();
 const port = process.env.PORT || 5000;
@@ -94,7 +94,6 @@ async function run() {
           upazila,
         };
 
-        // Remove undefined fields to avoid overwriting with null
         Object.keys(updateUser).forEach(
           (key) => updateUser[key] === undefined && delete updateUser[key],
         );
@@ -120,27 +119,72 @@ async function run() {
       return res.status(200).json(users);
     });
 
-    // block/unblock and make admin/volunteer user
+    // block/unblock user
     app.patch("/dashboard/user-status", async (req, res) => {
-      const { email, status, role } = req.body;
-      if (!email) {
-        return res
-          .status(400)
-          .json({ message: "Email is required to update user status" });
+      try {
+        const { id, status } = req.body;
+        if (!id) {
+          return res
+            .status(400)
+            .json({ message: "User Id is required to update user status" });
+        }
+        if (!status) {
+          return res
+            .status(400)
+            .json({ message: "Status is required to update user status" });
+        }
+        const result = await db
+          .collection("user")
+          .updateOne({ _id: new ObjectId(id) }, { $set: { status: status } });
+        return res.status(200).json({ success: true });
+      } catch (error) {
+        console.error("User status update error:", error);
+        return res.status(500).json({ message: "Internal server error" });
       }
-      if (!status) {
-        return res
-          .status(400)
-          .json({ message: "Status is required to update user status" });
-      }
-      if (!role) {
-        return res
-          .status(400)
-          .json({ message: "Role is required to update user status" });
-      }
-      const result = await db.collection("user").updateOne();
-      return res.status(200).json({ success: true });
     });
+
+    // make user admin/volunteer
+    app.patch("/dashboard/user-role", async (req, res) => {
+      try {
+        const { id, role } = req.body;
+        if (!id) {
+          return res
+            .status(400)
+            .json({ message: "User Id is required to update user role" });
+        }
+        if (!role) {
+          return res
+            .status(400)
+            .json({ message: "Role is required to update user role" });
+        }
+        const result = await db
+          .collection("user")
+          .updateOne({ _id: new ObjectId(id) }, { $set: { role: role } });
+        return res.status(200).json({ success: true });
+      } catch (error) {
+        console.error("User role update error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+    // filter users by role
+    app.get("/dashboard/users-by-role", async (req, res) => {
+      try {
+        const { role } = req.query;
+        if (!role) {
+          return res
+            .status(400)
+            .json({ message: "Role is required to filter users by role" });
+        }
+        const users = await db.collection("user").find({ role }).toArray();
+        return res.status(200).json(users);
+      } catch (error) {
+        console.error("User role update error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+    
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",

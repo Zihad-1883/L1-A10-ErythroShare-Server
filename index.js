@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
+const e = require("express");
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -30,7 +31,7 @@ async function run() {
     const db = client.db("erythro-share");
     const donationRequestsCollection = db.collection("donationRequests");
 
-    // create a route to post donation requests
+    // post donation requests
     app.post("/dashboard/create-donation-request", async (req, res) => {
       const {
         name,
@@ -66,13 +67,94 @@ async function run() {
       return res.status(201).json(donationRequest);
     });
 
-    // create a route to get all donation requests
-    app.get("/dashboard/my-donation-requests/:id", async (req, res) => {
-      const donationRequests = await donationRequestsCollection
-        .find()
-        .toArray();
-      // console.log(donationRequests);
-      return res.status(200).json(donationRequests);
+    // get all donation requests
+    app.get("/dashboard/all-blood-donation-request", async (req, res) => {
+      try {
+        const donationRequests = await donationRequestsCollection
+          .find()
+          .toArray();
+        return res.status(200).json(donationRequests);
+      } catch (error) {
+        console.error("Fetch donation requests error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+    // get all donation requests by email (my donation requests)
+    app.get("/dashboard/my-donation-requests/:email", async (req, res) => {
+      const { email } = req.params;
+      try {
+        const donationRequests = await donationRequestsCollection
+          .find({ email: email })
+          .toArray();
+        // console.log(donationRequests);
+        return res.status(200).json(donationRequests);
+      } catch (error) {
+        console.error("Fetch donation requests error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+    // delete donation request
+    app.delete("/dashboard/donation-request/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const result = await donationRequestsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        if (result.deletedCount === 0) {
+          return res.status(404).json({ message: "Request not found" });
+        }
+        return res
+          .status(200)
+          .json({ success: true, message: "Request deleted" });
+      } catch (error) {
+        console.error("Delete donation request error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+    // get single donation request
+    app.get("/dashboard/donation-request/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const result = await donationRequestsCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        if (!result) {
+          return res.status(404).json({ message: "Request not found" });
+        }
+        return res.status(200).json(result);
+      } catch (error) {
+        console.error("Get donation request error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+    // update donation request status and donor info
+    app.patch("/dashboard/donation-request-status/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { status, donorName, donorEmail } = req.body;
+        
+        const updateDoc = { $set: { status: status } };
+        if (donorName) updateDoc.$set.donorName = donorName;
+        if (donorEmail) updateDoc.$set.donorEmail = donorEmail;
+
+        const result = await donationRequestsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          updateDoc,
+        );
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "Request not found" });
+        }
+        return res
+          .status(200)
+          .json({ success: true, message: "Request updated" });
+      } catch (error) {
+        console.error("Update donation status error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
     });
 
     // update profile
@@ -113,10 +195,22 @@ async function run() {
       }
     });
 
-    // get all users
+    // get all users with status filtering
     app.get("/dashboard/all-users", async (req, res) => {
-      const users = await db.collection("user").find().toArray();
-      return res.status(200).json(users);
+      try {
+        const { status } = req.query;
+        let query = {};
+
+        if (status && status !== "all") {
+          query.status = status;
+        }
+
+        const users = await db.collection("user").find(query).toArray();
+        return res.status(200).json(users);
+      } catch (error) {
+        console.error("Fetch users error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
     });
 
     // block/unblock user
@@ -166,25 +260,6 @@ async function run() {
         return res.status(500).json({ message: "Internal server error" });
       }
     });
-
-    // filter users by role
-    app.get("/dashboard/users-by-role", async (req, res) => {
-      try {
-        const { role } = req.query;
-        if (!role) {
-          return res
-            .status(400)
-            .json({ message: "Role is required to filter users by role" });
-        }
-        const users = await db.collection("user").find({ role }).toArray();
-        return res.status(200).json(users);
-      } catch (error) {
-        console.error("User role update error:", error);
-        return res.status(500).json({ message: "Internal server error" });
-      }
-    });
-
-    
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
